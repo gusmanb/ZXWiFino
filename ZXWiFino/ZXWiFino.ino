@@ -115,51 +115,32 @@
 #include <TimerOne.h>
 #include <EEPROM.h>
 #include "ZXWiFino.h"
-//Define your access point here
-#define ACCES_POINT ""
-//Define your password here
-#define PASSWORD ""
 
-#define VERSION "ZXWiFino 1.0"
+#ifdef LCD_16x16_4bits
 
-#include <LiquidCrystal.h>
-char indicators[] = { '|', '/', '-',0 };
+	#include <LiquidCrystal.h>
+	LiquidCrystal lcd(rsPin, enPin, d4Pin, d5Pin, d6Pin, d7Pin);
 
-//Parallel (4 bit) LCD pin definitions
-#define rs 14
-#define en 15
-#define d4 16
-#define d5 17
-#define d6 18
-#define d7 19
+#endif
 
-LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+#ifdef LCD_16x16_I2C
+
+	#include <Wire.h>
+	#include <LiquidCrystal_I2C.h>
+	LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 16, 2);
+
+#endif
 
 SdFat sd;                           //Initialise Sd card 
-
 SdFile entry;                       //SD card file
 
-#define filenameLength    100       //Maximum length for scrolling filename
-
-char fileName[filenameLength + 1];    //Current filename
+char dataBuffer[bufferLength + 1];    //Current filename
 char sfileName[13];                 //Short filename variable
 char prevSubDir[3][25];
+char outtext[17];
+
 int subdir = 0;
 unsigned long filesize;             // filesize used for dimensioning AY files
-
-//Pinout, configure at will (do not use TX and RX, used by the WiFi module)
-
-#define chipSelect    10          //Sd card chip select pin
-#define btnUp         7            //Up button
-#define btnDown       8            //Down button
-#define btnPlay       2            //Play Button
-#define btnStop       3            //Stop Button
-#define btnMenu      4             //Motor Sense (connect pin to gnd to play, NC for pause
-#define btnWiFi       6            //WiFi button
-#define btnRewind       5             //Return to SD card root
-
-#define scrollSpeed   200           //text scroll delay
-#define scrollWait    2000          //Delay before scrolling starts
 
 byte scrollPos = 0;                 //Stores scrolling text position
 unsigned long scrollTime = millis() + scrollWait;
@@ -230,18 +211,18 @@ void loop(void)
 	else
 		digitalWrite(outputPin, LOW);    //Keep output LOW while no file is playing.
 
-	if ((millis() >= scrollTime) && start == 0 && (strlen(fileName) > 15))
+	if ((millis() >= scrollTime) && start == 0 && (strlen(dataBuffer) > 15))
 	{
 		//Filename scrolling only runs if no file is playing to prevent I2C writes 
 		//conflicting with the playback Interrupt
 		scrollTime = millis() + scrollSpeed;
-		scrollText(fileName);
+		scrollText(dataBuffer);
 		scrollPos += 1;
-		if (scrollPos > strlen(fileName))
+		if (scrollPos > strlen(dataBuffer))
 		{
 			scrollPos = 0;
 			scrollTime = millis() + scrollWait;
-			scrollText(fileName);
+			scrollText(dataBuffer);
 		}
 	}
 
@@ -350,20 +331,20 @@ void loop(void)
 		//If we are in a folder, the stop button returns to the root folder
 		if (digitalRead(btnStop) == LOW && start == 0 && subdir > 0)
 		{
-			fileName[0] = '\0';
+			dataBuffer[0] = '\0';
 			prevSubDir[subdir - 1][0] = '\0';
 			subdir--;
 
 			switch (subdir)
 			{
 				case 1:
-					sd.chdir(strcat(strcat(fileName, "/"), prevSubDir[0]), true);
+					sd.chdir(strcat(strcat(dataBuffer, "/"), prevSubDir[0]), true);
 					break;
 				case 2:
-					sd.chdir(strcat(strcat(strcat(strcat(fileName, "/"), prevSubDir[0]), "/"), prevSubDir[1]), true);
+					sd.chdir(strcat(strcat(strcat(strcat(dataBuffer, "/"), prevSubDir[0]), "/"), prevSubDir[1]), true);
 					break;
 				case 3:
-					sd.chdir(strcat(strcat(strcat(strcat(strcat(strcat(fileName, "/"), prevSubDir[0]), "/"), prevSubDir[1]), "/"), prevSubDir[2]), true);
+					sd.chdir(strcat(strcat(strcat(strcat(strcat(strcat(dataBuffer, "/"), prevSubDir[0]), "/"), prevSubDir[1]), "/"), prevSubDir[2]), true);
 					break;
 				default:
 					sd.chdir("/", true);
@@ -492,12 +473,12 @@ void loop(void)
 
 			printtextF(PSTR("                "), 1);
 			scrollPos = 0;
-			scrollText(fileName);
+			scrollText(dataBuffer);
 
 			while (digitalRead(btnWiFi) == LOW)
 				delay(50);
 
-			strcpy("ROOT", fileName);
+			strcpy("ROOT", dataBuffer);
 			changeDir();
 		}
 
@@ -583,7 +564,7 @@ void seekFile(int pos)
 		}
 	}
 	
-	entry.getName(fileName, filenameLength);
+	entry.getName(dataBuffer, bufferLength);
 	entry.getSFN(sfileName);
 	filesize = entry.fileSize();
 	ayblklen = filesize + 3;  // add 3 file header, data byte and chksum byte to file length
@@ -601,7 +582,7 @@ void seekFile(int pos)
 	printtext(PlayBytes, 0);
 
 	scrollPos = 0;
-	scrollText(fileName);
+	scrollText(dataBuffer);
 }
 
 //Stop playback
@@ -628,7 +609,7 @@ void playFile()
 
 			scrollPos = 0;
 			pauseOn = 0;
-			scrollText(fileName);
+			scrollText(dataBuffer);
 			currpct = 100;
 			lcdsegs = 0;
 			TZXPlay(sfileName);           //Load using the short filename
@@ -659,15 +640,15 @@ void getMaxFile()
 void changeDir()
 {
 
-	if (!strcmp(fileName, "ROOT"))
+	if (!strcmp(dataBuffer, "ROOT"))
 	{
 		subdir = 0;
 		sd.chdir(true);
 	}
 	else
 	{
-		if (subdir > 0) entry.cwd()->getName(prevSubDir[subdir - 1], filenameLength); // Antes de cambiar  
-		sd.chdir(fileName, true);
+		if (subdir > 0) entry.cwd()->getName(prevSubDir[subdir - 1], bufferLength); // Antes de cambiar  
+		sd.chdir(dataBuffer, true);
 		subdir++;
 	}
 
@@ -680,7 +661,7 @@ void changeDir()
 void scrollText(char* text)
 {
 	if (scrollPos < 0) scrollPos = 0;
-	char outtext[17];
+	
 
 	if (isDir)
 	{
@@ -721,8 +702,6 @@ void scrollText(char* text)
 //Print text to screen from a PROG string. 
 void printtextF(const char* text, int l)
 {  
-	
-
 	lcd.setCursor(0, l);
 	lcd.print(F("                    "));
 	lcd.setCursor(0, l);

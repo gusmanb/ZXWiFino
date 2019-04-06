@@ -10,7 +10,6 @@
  *  Save settings to eeprom on exit.
  */
 
-
 void menuMode()
 {
 	byte lastbtn = true;

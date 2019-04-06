@@ -1,41 +1,38 @@
-
-#include <SdFat.h>
-
-#define OFFSET_IP 14
-#define OFFSET_LEN 7
-
-#define WAITING_CONNECTION 0
-#define WAITING_NAME 1
-#define READING_DATA 2
-//No idea why but with a bigger buffer the program crashes randomly, it seems the "used memory" is not totally accurate and we're out of space
-#define BUFFER_SIZE 150
-
-static char buffer[BUFFER_SIZE];
-static int state = 0;
+int state = 0;
 
 inline void StartWiFi()
 {
-	//Start the hardware serial port at 115200 (default config for the ESP-01)
-	Serial.begin(115200);
+	if (!CheckWiFiSettings())
+	{
+		lcd.clear();
+		printtextF(PSTR("Missing settings.."), 0);
+		delay(5000);
+		return;
+	}
 
+	//Start the hardware serial port at 115200 (default config for the ESP-01)
+	
 	lcd.clear();
 	printtextF(PSTR("Starting WiFi..."), 0);
 
+	Serial.begin(115200);
 	Serial.setTimeout(60000);
+
 	ClearSerial();
+
 	SendCommand(PSTR("AT+RST"));//!!!!! Reset the ESP-01 device for a clean startup
 	delay(2000);
 	ClearSerial();
+	
 	SendCommand(PSTR("ATE0")); //Disable echo
-	ClearSerial();
 	delay(500);
 	ClearSerial();
 
-	lcd.clear();
 	SendCommand(PSTR("AT+CWMODE=1")); //Station mode
 
 	if (!CheckOK())
 	{
+		entry.close();
 		printtextF(PSTR("Error!"), 1);
 		Serial.end();
 		delay(5000);
@@ -44,8 +41,9 @@ inline void StartWiFi()
 
 	lcd.clear();
 	printtextF(PSTR("Registering..."), 0);
-	SendCommand(PSTR("AT+CWJAP_CUR=\"" ACCES_POINT "\",\"" PASSWORD "\"")); //Register with the access point
-	
+
+	SendWiFiSettings();
+
 	if (!CheckOK())
 	{
 		printtextF(PSTR("Error!"), 1);
@@ -58,8 +56,7 @@ inline void StartWiFi()
 	
 	SendCommand(PSTR("AT+CIPMUX=1")); //Allow multiple connections, forced by the server mode
 	delay(100);
-	while(Serial.available())
-		ReadLine();
+	ClearSerial();
 
 	SendCommand(PSTR("AT+CIPSERVER=1,9090")); //Start server on port 9090
 
@@ -72,9 +69,7 @@ inline void StartWiFi()
 	}
 
 	SendCommand(PSTR("AT+CIPSTO=0")); //Disable timeout, we already take care of it
-	
 	delay(100);
-
 	ClearSerial();
 	
 	SendCommand(PSTR("AT+CIFSR")); //Get IP address
@@ -91,16 +86,88 @@ inline void StartWiFi()
 	delay(500);
 	ClearSerial();
 	printtextF(PSTR("Server running"), 0);
-	printtext(buffer, 1); //Show IP to the user
+	printtext(dataBuffer, 1); //Show IP to the user
 	ServerLoop();
+}
+
+//Sends the WiFi AP name and password
+inline void SendWiFiSettings()
+{
+	SendPartialCommand(PSTR("AT+CWJAP_CUR=\""));
+	int read = entry.read();
+
+	//Read unitil we reach a new line
+	while (read != '\r' && read != '\n')
+	{
+		Serial.write(read);
+		read = entry.read();
+	}
+
+	if (read == '\r')
+		entry.read();
+
+	SendPartialCommand(PSTR("\",\""));
+	
+	read = entry.read();
+
+	//Read until we reach a new line or the end of the file
+	while (read != '\r' && read != '\n' && read != -1)
+	{
+		Serial.write(read);
+		read = entry.read();
+	}
+
+	entry.close();
+	
+	SendPartialCommand(PSTR("\"\r\n"));
+}
+
+inline bool CheckWiFiSettings()
+{
+	//Get to the root directory
+	sd.chdir(true);
+
+	//Get the first file name
+	entry.cwd()->rewind();
+	
+	//No file on the SD card!
+	if (!entry.openNext(entry.cwd(), O_READ))
+		return false;
+
+	entry.getName(dataBuffer, bufferLength);
+
+	//Loop through the entries until we find our settings or reached the end of the records
+	while (strcmp_P(dataBuffer, PSTR("wifi.ini")))
+	{
+		entry.close();
+
+		if (!entry.openNext(entry.cwd(), O_READ)) //No more records!
+			return false;
+
+		entry.getName(dataBuffer, bufferLength);
+	}
+	
+	//Search for a new line, the config must contain two lines, any other data after those lines will be ignored.
+	int read = entry.read();
+
+	while(read != -1 && read != '\r' && read != '\n')
+		read = entry.read();
+
+	//Not found!!
+	if (read == -1)
+		return false;
+
+	entry.seekSet(0);
+
+	return true;
 }
 
 //Show an error code to the user
 inline void ShowError(uint8_t ErrorCode)
 {
-	itoa(ErrorCode, buffer, 10);
+	itoa(ErrorCode, dataBuffer, 10);
 	printtextF(PSTR("Error!"), 0);
-	printtext(buffer, 1);
+	printtext(dataBuffer, 1);
 	delay(5000);
 }
 
@@ -114,7 +181,7 @@ inline void ClearSerial()
 //Read a line from the serial port
 inline bool ReadLine()
 {
-	memset(buffer, 0, BUFFER_SIZE);
+	memset(dataBuffer, 0, bufferLength);
 	int pos = 0;
 
 
@@ -132,19 +199,19 @@ inline bool ReadLine()
 			
 		}
 
-		while (Serial.available() && pos < BUFFER_SIZE - 1)//While something to read...
+		while (Serial.available() && pos < bufferLength - 1)//While something to read...
 		{
 			char val = (char)Serial.read(); //Store in buffer
-			buffer[pos++] = val;
+			dataBuffer[pos++] = val;
 
 			if (val == '\n') //Line terminator?
 			{
-				buffer[pos] = '\0'; //Remove \r and place a string terminator
+				dataBuffer[pos] = '\0'; //Remove \r and place a string terminator
 				return true;
 			}
 		}
 
-		if (pos >= BUFFER_SIZE - 1) //Overflow!!
+		if (pos >= bufferLength - 1) //Overflow!!
 			return false;
 	}
 
@@ -154,7 +221,7 @@ inline bool ReadLine()
 //Wait for an OK response
 inline bool CheckOK()
 {
-	memset(buffer, 0, BUFFER_SIZE);
+	memset(dataBuffer, 0, bufferLength);
 	int pos = 0;
 
 	bool found = false;
@@ -167,9 +234,9 @@ inline bool CheckOK()
 			return false;
 		}
 
-		if (!strcmp_P(buffer, PSTR("OK\r\n")) || !strcmp_P(buffer, PSTR("SEND OK\r\n"))) //It's an ok?
+		if (!strcmp_P(dataBuffer, PSTR("OK\r\n")) || !strcmp_P(dataBuffer, PSTR("SEND OK\r\n"))) //It's an ok?
 			return true;
-		else if (!strcmp_P(buffer, PSTR("ERROR\r\n")) || !strcmp_P(buffer, PSTR("FAIL\r\n")))//It's an error?
+		else if (!strcmp_P(dataBuffer, PSTR("ERROR\r\n")) || !strcmp_P(dataBuffer, PSTR("FAIL\r\n")))//It's an error?
 			return false;
 	}
 
@@ -234,6 +301,8 @@ inline void ServerLoop()
 			while (digitalRead(btnWiFi) == LOW)
 				delay(50);
 
+			memset(dataBuffer, 0, bufferLength);
+
 			return;
 		}
 	}
@@ -265,38 +334,38 @@ inline void Terminate()
 inline void CleanIP()
 {
 	int pos = 0;
-	char current = buffer[OFFSET_IP];
+	char current = dataBuffer[OFFSET_IP];
 
 	while (current != '"')
 	{
-		buffer[pos] = current;
+		dataBuffer[pos] = current;
 		pos++;
-		current = buffer[OFFSET_IP + pos];
+		current = dataBuffer[OFFSET_IP + pos];
 	}
 
-	buffer[pos] = 0;
+	dataBuffer[pos] = 0;
 }
 
 //Process an incomming command
 inline bool ProcessCommand()
 {
 
-	if (buffer[0] == '+')
+	if (dataBuffer[0] == '+')
 	{
 		//Process incomming remote data
 		return ProcessIncommingData();
 	}
-	else if (!strcmp_P(&buffer[2], PSTR("CONNECT\r\n")))
+	else if (!strcmp_P(&dataBuffer[2], PSTR("CONNECT\r\n")))
 	{
 		//Process a new connection
 		return ProcessConnection();
 	}
-	else if (!strcmp_P(&buffer[2], PSTR("CLOSED\r\n")))
+	else if (!strcmp_P(&dataBuffer[2], PSTR("CLOSED\r\n")))
 	{
 		//Process a connection close
 		return ProcessDisconnected();
 	}
-	else if (buffer[0] == '\r' && buffer[1] == '\n')
+	else if (dataBuffer[0] == '\r' && dataBuffer[1] == '\n')
 	{
 		//Discard trash generated by the ESP-01 module (some empty lines)
 		return true;
@@ -314,7 +383,7 @@ inline bool ProcessConnection()
 {
 	if (state == WAITING_CONNECTION)
 	{
-		if (buffer[0] == '0')
+		if (dataBuffer[0] == '0')
 		{
 			//If we're waiting for a connection and this is the link 0, accept it
 			if (SendInit())
@@ -332,14 +401,14 @@ inline bool ProcessConnection()
 		else
 		{
 			//Close the connection
-			CloseLink(buffer[0]);
+			CloseLink(dataBuffer[0]);
 			return true;
 		}
 	}
 	else
 	{
 		//Close the connection
-		CloseLink(buffer[0]);
+		CloseLink(dataBuffer[0]);
 		return true;
 	}
 
@@ -384,7 +453,7 @@ inline bool SendOk()
 //Disconnection received, what do we do?
 inline bool ProcessDisconnected()
 {
-	if (buffer[0] == '0' && state > WAITING_CONNECTION) //We only care about disconnections when there is a transmission and the disconnected link is the zero one
+	if (dataBuffer[0] == '0' && state > WAITING_CONNECTION) //We only care about disconnections when there is a transmission and the disconnected link is the zero one
 	{
 		if (entry.isOpen()) //Close the entry if it's open
 			entry.close();
@@ -429,7 +498,7 @@ inline bool ProcessFilename()
 	}
 
 	//Open file
-	if (!entry.open(buffer, O_CREAT | O_RDWR))
+	if (!entry.open(dataBuffer, O_CREAT | O_RDWR))
 	{
 		ShowError(2);
 		return false;
@@ -450,21 +519,21 @@ inline bool ProcessFilename()
 //Checks if the target path exists and if not creates it
 inline bool CheckFolders()
 {
-	int filePos = strlen(buffer);
+	int filePos = strlen(dataBuffer);
 
-	while (buffer[filePos] != '/')
+	while (dataBuffer[filePos] != '/')
 		filePos--;
 
-	buffer[filePos] = '\0';
+	dataBuffer[filePos] = '\0';
 
 	bool res = false;
 
-	if (!sd.exists(buffer))
-		res = sd.mkdir(buffer, true);
+	if (!sd.exists(dataBuffer))
+		res = sd.mkdir(dataBuffer, true);
 	else
 		res = true;
 
-	buffer[filePos] = '/';
+	dataBuffer[filePos] = '/';
 
 	return res;
 }
@@ -472,7 +541,7 @@ inline bool CheckFolders()
 inline bool ProcessDataPacket()
 {
 	int len = PrepareData(); //Prepare the data in the buffer
-	len = base64_decode(buffer, buffer, len); //Decode the data (only string data is accepted)
+	len = base64_decode(dataBuffer, dataBuffer, len); //Decode the data (only string data is accepted)
 
 	if (len < 1) //No data?
 	{
@@ -480,7 +549,7 @@ inline bool ProcessDataPacket()
 		return false;
 	}
 
-	if (len == 1 && buffer[0] == '\0') //A packet with only one zero byte means "transfer finished"
+	if (len == 1 && dataBuffer[0] == '\0') //A packet with only one zero byte means "transfer finished"
 	{
 		entry.flush();
 		entry.close();
@@ -490,7 +559,7 @@ inline bool ProcessDataPacket()
 	}
 
 	//Write the data to the file
-	entry.write(buffer, len);
+	entry.write(dataBuffer, len);
 
 	if (!SendOk())
 	{
@@ -506,17 +575,17 @@ inline int PrepareData()
 {
 	int pos = OFFSET_LEN;
 
-	while (buffer[pos] != ':' && pos < BUFFER_SIZE)
+	while (dataBuffer[pos] != ':' && pos < bufferLength)
 	{
-		buffer[pos - OFFSET_LEN] = buffer[pos];
+		dataBuffer[pos - OFFSET_LEN] = dataBuffer[pos];
 		pos++;
 	}
 
-	buffer[pos] = '\0';
+	dataBuffer[pos] = '\0';
 
 	pos++;
 
-	int len = atoi(buffer);
+	int len = atoi(dataBuffer);
 
 	if (len < 3)
 		return -1;
@@ -524,9 +593,9 @@ inline int PrepareData()
 	len -= 2;
 
 	for (int buc = 0; buc < len; buc++)
-		buffer[buc] = buffer[buc + pos];
+		dataBuffer[buc] = dataBuffer[buc + pos];
 
-	buffer[len] = '\0';
+	dataBuffer[len] = '\0';
 
 	return len ;
 }

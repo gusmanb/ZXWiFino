@@ -5,7 +5,7 @@ void lcdSpinner()
 		timeDiff2 = millis();           // get current millisecond count
 
 		lcd.setCursor(15, 0);
-		lcd.print(indicators[spinpos++]);
+		lcd.print(reinterpret_cast <const __FlashStringHelper *> (indicators[spinpos++]));
 
 		if (spinpos > 3)
 		{

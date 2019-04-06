@@ -1,4 +1,80 @@
-#define outputPin           9              // Audio Output PIN - Set accordingly to your hardware.
+#pragma region LCD type
+
+//Uncomment your LCD type
+#define LCD_16x16_4bits
+
+//#define LCD_16x16_I2C
+
+#ifdef LCD_16x16_I2C
+
+	#define LCD_I2C_ADDRESS 0x3C
+
+#endif
+
+#pragma endregion
+
+#pragma region General definitions
+
+#define VERSION "ZXWiFino 1.0"
+
+//If you have memory problems, reduce this buffer, also remember to reduce it on the client code.
+//The larger it is, the more efficient the data transfer will be
+#define bufferLength    250       //Data buffer length, used for file name and data transfer
+
+#define scrollSpeed   200           //text scroll delay
+#define scrollWait    2000          //Delay before scrolling starts
+
+PROGMEM const char indicators[] = { '|', '/', '-',0 };
+
+#pragma endregion
+
+#pragma region Pin definitions
+
+//Pinout, configure at will (do not use TX and RX, used by the WiFi module)
+#define chipSelect    10			//Sd card chip select pin
+#define btnUp         7				//Up button
+#define btnDown       8				//Down button
+#define btnPlay       2				//Play Button
+#define btnStop       3				//Stop Button
+#define btnWiFi       6				//WiFi button
+
+//WARNING, these pins (4 and 5) will be used by the I2C LCD
+//If you plan to use the I2C then choose other pins
+
+#define btnMenu       4				//Opens the MSX speedup menu
+#define btnRewind     5				//Rewinds the currently playing tape
+
+#ifdef LCD_16x16_4bits
+
+//Parallel (4 bit) LCD pin definitions
+#define rsPin 14
+#define enPin 15
+#define d4Pin 16
+#define d5Pin 17
+#define d6Pin 18
+#define d7Pin 19
+
+#endif
+
+
+
+// Audio Output PIN - Set accordingly to your hardware.
+#define outputPin           9              
+
+#pragma endregion
+
+#pragma region WiFi stuff
+
+#define OFFSET_IP 14
+#define OFFSET_LEN 7
+
+#define WAITING_CONNECTION 0
+#define WAITING_NAME 1
+#define READING_DATA 2
+
+#pragma endregion
+
+#pragma region Tape processing stuff
 
 PROGMEM const char TZXTape[7] = { 'Z','X','T','a','p','e','!' };
 PROGMEM const char TAPcheck[7] = { 'T','A','P','t','a','p','.' };
@@ -107,14 +183,12 @@ byte btemppos = 0;
 byte copybuff = LOW;
 unsigned long bytesRead = 0;
 unsigned long bytesToRead = 0;
-byte pulsesCountByte = 0;
 word pilotPulses = 0;
 word pilotLength = 0;
 word sync1Length = 0;
 word sync2Length = 0;
 word zeroPulse = 0;
 word onePulse = 0;
-word TstatesperSample = 0;
 byte usedBitsInLastByte = 8;
 word loopCount = 0;
 byte seqPulses = 0;
@@ -129,15 +203,14 @@ volatile byte currentBit = 0;
 volatile byte currentByte = 0;
 volatile byte currentChar = 0;
 byte pass = 0;
-unsigned long debugCount = 0;
 byte EndOfFile = false;
-//byte firstTime=true;
 
 byte currpct = 100;
 byte newpct = 0;
 byte spinpos = 0;
 unsigned long timeDiff2 = 0;
 unsigned int lcdsegs = 0;
-unsigned int offset = 2;
 int TSXspeedup = 1;
 int BAUDRATE = 1200;
+
+#pragma endregion

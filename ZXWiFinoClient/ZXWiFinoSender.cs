@@ -10,6 +10,9 @@ namespace ZXWiFinoClient
 {
     public static class ZXWiFinoSender
     {
+
+        const int MaxPacketSize = 250 - 10;//Our buffer size less the IPD data
+
         public static event EventHandler<ProgressInfoEventArgs> ProgressChanged;
 
         public static async Task<bool> SendFile(string FileName, string TargetPath, string Server)
@@ -38,9 +41,17 @@ namespace ZXWiFinoClient
 
                 while (pos < data.Length)
                 {
-                    int consume = Math.Min(data.Length - pos, 90);
+                    int consume = Math.Min(data.Length - pos, MaxPacketSize);
 
+                    //Optimized for maximum data transfer
                     line = Convert.ToBase64String(data, pos, consume) + "\r\n";
+
+                    while (line.Length > MaxPacketSize)
+                    {
+                        consume--;
+                        line = Convert.ToBase64String(data, pos, consume) + "\r\n";
+                    }
+
                     pos += consume;
                     sw.Write(line);
                     sw.Flush();

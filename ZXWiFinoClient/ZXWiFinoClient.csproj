@@ -32,6 +32,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>cinta_cursor_LsY_icon.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="IPAddressControlLib, Version=1.2.4446.28646, Culture=neutral, PublicKeyToken=64ca5a4287aa7107, processorArchitecture=MSIL">
       <HintPath>F:\ZXWiFino\packages\IPAddressControl.1.2.4446.28646\lib\IPAddressControlLib.dll</HintPath>
@@ -93,6 +96,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\cinta_llena.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="cinta_cursor_LsY_icon.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

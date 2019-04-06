@@ -128,6 +128,7 @@
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "Main";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "ZXWiFino Client";
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.Main_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.Main_DragEnter);

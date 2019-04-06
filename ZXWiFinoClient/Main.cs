@@ -21,6 +21,16 @@ namespace ZXWiFinoClient
         public Main()
         {
             InitializeComponent();
+
+            if (File.Exists(Path.Combine(Application.StartupPath, "lastaddress.dat")))
+            {
+                try
+                {
+                    zxAddress.IPAddress = IPAddress.Parse(File.ReadAllText(Path.Combine(Application.StartupPath, "lastaddress.dat")));
+                }
+                catch { }
+            }
+
             ZXWiFinoSender.ProgressChanged += ZXWiFinoSender_ProgressChanged;
         }
 
@@ -99,6 +109,11 @@ namespace ZXWiFinoClient
                                 MessageBox.Show("Error transferring file!");
                             }));
                         }
+                        else
+                        {
+                            File.WriteAllText(Path.Combine(Application.StartupPath, "lastaddress.dat"), zxAddress.IPAddress.ToString());
+                        }
+
                         transferring = false;
 
                         BeginInvoke((MethodInvoker)(() =>
