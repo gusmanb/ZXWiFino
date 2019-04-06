@@ -1,7 +1,7 @@
 # ZXWiFino
 
 A modified TZXDuino with WiFi support and other goodies
-By Agustín Giménez Bernad, 2019
+By AgustÃ­n GimÃ©nez Bernad, 2019
 
 Developed with Visual Studio 2017 and Visual Micro for Arduino
 
@@ -43,4 +43,4 @@ Beware, it must be an ESP-01 module with a 8Mb flash
  - All defines are now placed in ZXWiFino.h
  - Added "#pragma region"s to make defines more readable (if you use Visual Studio)
 
-** BEWARE! ** I have increased the data buffer to 250 bytes, it's taking a lot of memory and using the I2C library may cause the program to fail randomly as it will run out of memory, reduce it's size and also remember to reduce the packet length in the client if you face problems using it.
+**BEWARE!** I have increased the data buffer to 250 bytes, it's taking a lot of memory and using the I2C library may cause the program to fail randomly as it will run out of memory, reduce it's size and also remember to reduce the packet length in the client if you face problems using it.
