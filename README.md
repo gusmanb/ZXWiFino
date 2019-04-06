@@ -33,7 +33,7 @@ Tested firmware:Ai-Thinker_ESP8266_AT_Firmware_DOUT_v1.5.4.1-a_20171130
 Found at http://acoptex.com/project/289/basics-project-021b-how-to-update-firmware-esp8266-esp-01-wi-fi-module-at-acoptexcom/
 Beware, it must be an ESP-01 module with a 8Mb flash
 
-##UPDATE 07/04/2019
+#UPDATE 07/04/2019
 
  WiFi settings no more in defines, place a file named "wifi.ini" on the root of your SD card with two lines, the first line must contain the AP name and the second the AP password
  Re-implemented I2C display
