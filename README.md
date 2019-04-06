@@ -33,14 +33,14 @@ Tested firmware:Ai-Thinker_ESP8266_AT_Firmware_DOUT_v1.5.4.1-a_20171130
 Found at http://acoptex.com/project/289/basics-project-021b-how-to-update-firmware-esp8266-esp-01-wi-fi-module-at-acoptexcom/
 Beware, it must be an ESP-01 module with a 8Mb flash
 
---UPDATE 07/04/2019
+##UPDATE 07/04/2019
 
--WiFi settings no more in defines, place a file named "wifi.ini" on the root of your SD card with two lines, the first line must contain the AP name and the second the AP password
--Re-implemented I2C display
--Code cleanup
--Added comments to the code
--Mixed data buffers in a single one to reduce memory footprint (and to be able to increas it and speed up transfers)
--All defines are now placed in ZXWiFino.h
--Added "#pragma region"s to make defines more readable (if you use Visual Studio)
+ WiFi settings no more in defines, place a file named "wifi.ini" on the root of your SD card with two lines, the first line must contain the AP name and the second the AP password
+ Re-implemented I2C display
+ Code cleanup
+ Added comments to the code
+ Mixed data buffers in a single one to reduce memory footprint (and to be able to increas it and speed up transfers)
+ All defines are now placed in ZXWiFino.h
+ Added "#pragma region"s to make defines more readable (if you use Visual Studio)
 
 BEWARE! I have increased the data buffer to 250 bytes, it's taking a lot of memory and using the I2C library may cause the program to fail randomly as it will run out of memory, reduce it's size and also remember to reduce the packet length in the client if you face problems using it.
