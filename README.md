@@ -10,6 +10,10 @@ copy the tapes and add it again to the device each time I'm testing new games, s
 add an inexpensive ESP-01 WiFi module to send the tapes directly from my pc through WiFi.
 Yes, I'm a lazy guy :D
 
+Just drop the tape file to the client window and let it place where it should be!
+
+![ZXWiFino client screen](https://raw.githubusercontent.com/gusmanb/ZXWiFino/master/zxwifino_client.jpg)
+
 To use the WiFi server press the WiFi button, to terminate the server press it again.
 If an error happens there will be a notice with the error code and the WiFi server will terminate automatically
 
