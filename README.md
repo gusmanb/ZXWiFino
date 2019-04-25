@@ -1,7 +1,7 @@
 # ZXWiFino
 
 A modified TZXDuino with WiFi support and other goodies
-By Agustín Giménez Bernad, 2019
+By AgustÃ­n GimÃ©nez Bernad, 2019
 
 Developed with Visual Studio 2017 and Visual Micro for Arduino
 
@@ -9,6 +9,10 @@ I HATE to have to get the card out, place it on my computer, create the correct 
 copy the tapes and add it again to the device each time I'm testing new games, so I decided to
 add an inexpensive ESP-01 WiFi module to send the tapes directly from my pc through WiFi.
 Yes, I'm a lazy guy :D
+
+Just drop the tape file to the client window and let it place where it should be!
+
+![ZXWiFino client screen](https://raw.githubusercontent.com/gusmanb/ZXWiFino/master/zxwifino_client.jpg)
 
 To use the WiFi server press the WiFi button, to terminate the server press it again.
 If an error happens there will be a notice with the error code and the WiFi server will terminate automatically
@@ -43,4 +47,4 @@ Beware, it must be an ESP-01 module with a 8Mb flash
  - All defines are now placed in ZXWiFino.h
  - Added "#pragma region"s to make defines more readable (if you use Visual Studio)
 
-** BEWARE! ** I have increased the data buffer to 250 bytes, it's taking a lot of memory and using the I2C library may cause the program to fail randomly as it will run out of memory, reduce it's size and also remember to reduce the packet length in the client if you face problems using it.
+**BEWARE!** I have increased the data buffer to 250 bytes, it's taking a lot of memory and using the I2C library may cause the program to fail randomly as it will run out of memory, reduce it's size and also remember to reduce the packet length in the client if you face problems using it.
