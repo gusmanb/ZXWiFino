@@ -11,23 +11,49 @@ namespace ZXWiFinoClient
     public static class ZXWiFinoSender
     {
 
-        const int MaxPacketSize = 250 - 10;//Our buffer size less the IPD data
+        const int MaxPacketSize = 250 - 15;//Our buffer size less the IPD data
 
         public static event EventHandler<ProgressInfoEventArgs> ProgressChanged;
 
         public static async Task<bool> SendFile(string FileName, string TargetPath, string Server)
         {
+
+            TcpClient c = null;
+            NetworkStream ns = null;
+            StreamReader sr = null;
+            StreamWriter sw = null;
+
             try
             {
-                TcpClient c = new TcpClient();
-                await c.ConnectAsync(Server, 9090);
-                NetworkStream ns = c.GetStream();
-                ns.ReadTimeout = 10000;
-                ns.WriteTimeout = 10000;
-                StreamReader sr = new StreamReader(ns);
-                StreamWriter sw = new StreamWriter(ns);
+                int retries = 0;
+                bool connected = false;
 
-                sr.ReadLine();
+                while (!connected && retries++ < 6)
+                {
+                    try
+                    {
+                        c = new TcpClient();
+                        await c.ConnectAsync(Server, 9090);
+                        ns = c.GetStream();
+                        ns.ReadTimeout = 10000;
+                        ns.WriteTimeout = 10000;
+                        sr = new StreamReader(ns);
+                        sw = new StreamWriter(ns);
+
+                        sr.ReadLine();
+                        connected = true;
+                    }
+                    catch
+                    {
+                        try { sw.Dispose(); } catch { }
+                        try { sr.Dispose(); } catch { }
+                        try { ns.Dispose(); } catch { }
+                        try { c.Dispose(); } catch { }
+                    }
+                }
+
+                if (!connected)
+                    return false;
 
                 var line = TargetPath + Path.GetFileName(FileName) + "\r\n";
                 sw.Write(line);
@@ -43,18 +69,11 @@ namespace ZXWiFinoClient
                 {
                     int consume = Math.Min(data.Length - pos, MaxPacketSize);
 
-                    //Optimized for maximum data transfer
-                    line = Convert.ToBase64String(data, pos, consume) + "\r\n";
-
-                    while (line.Length > MaxPacketSize)
-                    {
-                        consume--;
-                        line = Convert.ToBase64String(data, pos, consume) + "\r\n";
-                    }
-
+                    byte[] escapedData = EscapeData(data, pos, consume, out consume);
+                    
                     pos += consume;
-                    sw.Write(line);
-                    sw.Flush();
+                    await ns.WriteAsync(escapedData, 0, escapedData.Length);
+                    await ns.FlushAsync();
 
                     if (ProgressChanged != null)
                         ProgressChanged(null, new ProgressInfoEventArgs { Sent = pos, TotalSize = data.Length });
@@ -62,14 +81,66 @@ namespace ZXWiFinoClient
                     sr.ReadLine();
                 }
 
-                line = Convert.ToBase64String(new byte[] { 0 }) + "\r\n";
-                sw.Write(line);
-                sw.Flush();
+                byte[] endData = new byte[4] { 0xAA, 0x02, 0x0D, 0x0A };
+                
+                await ns.WriteAsync(endData, 0, endData.Length);
+                await ns.FlushAsync();
+                await Task.Delay(200);
                 c.Close();
+
                 return true;
             }
             catch { return false; }
+            finally
+            {
+                try { sw.Dispose(); } catch { }
+                try { sr.Dispose(); } catch { }
+                try { ns.Dispose(); } catch { }
+                try { c.Dispose(); } catch { }
+            }
         }
+
+        static byte[] EscapeData(byte[] Data, int Pos, int MaxLen, out int Consumed)
+        {
+            List<byte> data = new List<byte>();
+            Consumed = 0;
+
+            for (int buc = 0; buc < MaxLen; buc++)
+            {
+                if (Data[buc + Pos] == 0x0A)
+                {
+                    if (data.Count + 2 > MaxLen)
+                        break;
+
+                    data.Add(0xAA);
+                    data.Add(0x00);
+                    
+                }
+                else if (Data[buc + Pos] == 0xAA)
+                {
+                    if (data.Count + 2 > MaxLen)
+                        break;
+
+                    data.Add(0xAA);
+                    data.Add(0x01);
+                }
+                else
+                {
+                    if (data.Count + 1 > MaxLen)
+                        break;
+
+                    data.Add(Data[buc + Pos]);
+                }
+
+                Consumed++;
+            }
+
+            data.Add(0x0D);
+            data.Add(0x0A);
+
+            return data.ToArray();
+        }
+        
     }
 
     public class ProgressInfoEventArgs : EventArgs

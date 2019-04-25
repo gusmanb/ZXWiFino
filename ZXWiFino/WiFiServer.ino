@@ -2,6 +2,7 @@ int state = 0;
 
 inline void StartWiFi()
 {
+	//Read WiFi settings from SD card
 	if (!CheckWiFiSettings())
 	{
 		lcd.clear();
@@ -206,7 +207,7 @@ inline bool ReadLine()
 
 			if (val == '\n') //Line terminator?
 			{
-				dataBuffer[pos] = '\0'; //Remove \r and place a string terminator
+				dataBuffer[pos] = '\0'; //Place a string terminator
 				return true;
 			}
 		}
@@ -498,7 +499,7 @@ inline bool ProcessFilename()
 	}
 
 	//Open file
-	if (!entry.open(dataBuffer, O_CREAT | O_RDWR))
+	if (!entry.open(dataBuffer, O_CREAT | O_TRUNC | O_RDWR))
 	{
 		ShowError(2);
 		return false;
@@ -541,15 +542,14 @@ inline bool CheckFolders()
 inline bool ProcessDataPacket()
 {
 	int len = PrepareData(); //Prepare the data in the buffer
-	len = base64_decode(dataBuffer, dataBuffer, len); //Decode the data (only string data is accepted)
-
+	
 	if (len < 1) //No data?
 	{
 		ShowError(4);
 		return false;
 	}
 
-	if (len == 1 && dataBuffer[0] == '\0') //A packet with only one zero byte means "transfer finished"
+	if (len == 2 && dataBuffer[0] == '\xAA' && dataBuffer[1] == '\x02') //0xAA, 0x02 -> File terminator	   
 	{
 		entry.flush();
 		entry.close();
@@ -558,8 +558,12 @@ inline bool ProcessDataPacket()
 		return true;
 	}
 
+	len = Unescape(len); //Reconstruct the data
+
 	//Write the data to the file
 	entry.write(dataBuffer, len);
+
+	
 
 	if (!SendOk())
 	{
@@ -600,76 +604,28 @@ inline int PrepareData()
 	return len ;
 }
 
-//Base64 functions used from https://github.com/adamvr/arduino-base64
-inline int base64_decode(char * output, char * input, int inputLen)
+//Unescape buffered data
+inline int Unescape(int inputLen)
 {
-	int i = 0, j = 0;
-	int decLen = 0;
-	unsigned char a3[3];
-	unsigned char a4[4];
+	int posInput = 0;
+	int posOutput = 0;
+	byte inputData;
 
-
-	while (inputLen--)
+	while (posInput < inputLen)
 	{
-		if (*input == '=')
+		inputData = dataBuffer[posInput++];
+
+		if (inputData == 0xAA)
 		{
-			break;
+			if (dataBuffer[posInput++] == 0x00)
+				dataBuffer[posOutput++] = 0x0A;
+			else
+				dataBuffer[posOutput++] = 0xAA;
 		}
+		else
+			dataBuffer[posOutput++] = inputData;
 
-		a4[i++] = *(input++);
-		if (i == 4)
-		{
-			for (i = 0; i < 4; i++)
-			{
-				a4[i] = b64_lookup(a4[i]);
-			}
-
-			a4_to_a3(a3, a4);
-
-			for (i = 0; i < 3; i++)
-			{
-				output[decLen++] = a3[i];
-			}
-			i = 0;
-		}
 	}
 
-	if (i)
-	{
-		for (j = i; j < 4; j++)
-		{
-			a4[j] = '\0';
-		}
-
-		for (j = 0; j < 4; j++)
-		{
-			a4[j] = b64_lookup(a4[j]);
-		}
-
-		a4_to_a3(a3, a4);
-
-		for (j = 0; j < i - 1; j++)
-		{
-			output[decLen++] = a3[j];
-		}
-	}
-	output[decLen] = '\0';
-	return decLen;
-}
-
-inline void a4_to_a3(unsigned char * a3, unsigned char * a4)
-{
-	a3[0] = (a4[0] << 2) + ((a4[1] & 0x30) >> 4);
-	a3[1] = ((a4[1] & 0xf) << 4) + ((a4[2] & 0x3c) >> 2);
-	a3[2] = ((a4[2] & 0x3) << 6) + a4[3];
-}
-
-inline unsigned char b64_lookup(char c)
-{
-	if (c >= 'A' && c <= 'Z') return c - 'A';
-	if (c >= 'a' && c <= 'z') return c - 71;
-	if (c >= '0' && c <= '9') return c + 4;
-	if (c == '+') return 62;
-	if (c == '/') return 63;
-	return -1;
+	return posOutput;
 }

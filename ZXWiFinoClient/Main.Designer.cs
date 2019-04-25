@@ -36,6 +36,7 @@
             this.txtFolder = new System.Windows.Forms.TextBox();
             this.pbTape = new System.Windows.Forms.PictureBox();
             this.pBar = new System.Windows.Forms.ProgressBar();
+            this.lblName = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pbTape)).BeginInit();
             this.SuspendLayout();
             // 
@@ -105,17 +106,27 @@
             // 
             // pBar
             // 
-            this.pBar.Location = new System.Drawing.Point(16, 268);
+            this.pBar.Location = new System.Drawing.Point(15, 289);
             this.pBar.Name = "pBar";
             this.pBar.Size = new System.Drawing.Size(195, 23);
             this.pBar.TabIndex = 7;
+            // 
+            // lblName
+            // 
+            this.lblName.AutoEllipsis = true;
+            this.lblName.Location = new System.Drawing.Point(13, 265);
+            this.lblName.Name = "lblName";
+            this.lblName.Size = new System.Drawing.Size(198, 21);
+            this.lblName.TabIndex = 8;
+            this.lblName.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // Main
             // 
             this.AllowDrop = true;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(227, 300);
+            this.ClientSize = new System.Drawing.Size(227, 324);
+            this.Controls.Add(this.lblName);
             this.Controls.Add(this.pBar);
             this.Controls.Add(this.txtFolder);
             this.Controls.Add(this.rbSpecified);
@@ -147,6 +158,7 @@
         private System.Windows.Forms.RadioButton rbSpecified;
         private System.Windows.Forms.TextBox txtFolder;
         private System.Windows.Forms.ProgressBar pBar;
+        private System.Windows.Forms.Label lblName;
     }
 }
 

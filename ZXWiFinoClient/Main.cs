@@ -57,10 +57,13 @@ namespace ZXWiFinoClient
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if (files.Length == 1 && allowedFormats.Contains(Path.GetExtension(files[0]).ToLower()))
-                {
-                    e.Effect = DragDropEffects.Copy;
-                }
+
+                foreach (var file in files)
+                    if (!allowedFormats.Contains(Path.GetExtension(file).ToLower()))
+                        return;
+
+                e.Effect = DragDropEffects.Copy;
+                
             }
         }
 
@@ -78,35 +81,53 @@ namespace ZXWiFinoClient
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if (files.Length == 1 && allowedFormats.Contains(Path.GetExtension(files[0]).ToLower()))
+
+                foreach (var file in files)
+                    if (!allowedFormats.Contains(Path.GetExtension(file).ToLower()))
+                        return;
+
+                bool specified = rbSpecified.Checked;
+                string tPath = txtFolder.Text;
+
+                Task.Run(async () =>
                 {
                     transferring = true;
-                    string path = "";
-                    if (rbSpecified.Checked)
-                    {
-                        path = txtFolder.Text.Replace("\\", "/");
-                        if (!path.StartsWith("/"))
-                            path = "/" + path;
-                        if (!path.EndsWith("/"))
-                            path = path + "/";
-                    }
-                    else
-                    {
-                        string fileName = Path.GetFileNameWithoutExtension(files[0]).ToUpper();
-                        string letter = fileName.Substring(0, 1);
-                        string letters = fileName.Substring(0, Math.Min(3, fileName.Length));
-                        path = $"/{letter}/{letters}/";
-                    }
 
-                    pbTape.Image = Resources.cinta_llena;
-
-                    Task.Run(async () =>
+                    foreach (var file in files)
                     {
-                        if (!await ZXWiFinoSender.SendFile(files[0], path, zxAddress.IPAddress.ToString()))
+
+                        string path = "";
+                        if (specified)
+                        {
+                            path = tPath.Replace("\\", "/");
+                            if (!path.StartsWith("/"))
+                                path = "/" + path;
+                            if (!path.EndsWith("/"))
+                                path = path + "/";
+                        }
+                        else
+                        {
+                            string fileName = Path.GetFileNameWithoutExtension(file).ToUpper();
+                            string letter = fileName.Substring(0, 1);
+                            string letters = fileName.Substring(0, Math.Min(3, fileName.Length));
+                            path = $"/{letter}/{letters}/";
+                        }
+
+
+                        BeginInvoke((MethodInvoker)(() =>
+                        {
+                            pbTape.Image = Resources.cinta_llena;
+                            lblName.Text = Path.GetFileName(file);
+
+                        }));
+
+                        if (!await ZXWiFinoSender.SendFile(file, path, zxAddress.IPAddress.ToString()))
                         {
                             BeginInvoke((MethodInvoker)(() =>
                             {
                                 MessageBox.Show("Error transferring file!");
+                                transferring = false;
+                                return;
                             }));
                         }
                         else
@@ -114,15 +135,23 @@ namespace ZXWiFinoClient
                             File.WriteAllText(Path.Combine(Application.StartupPath, "lastaddress.dat"), zxAddress.IPAddress.ToString());
                         }
 
-                        transferring = false;
-
                         BeginInvoke((MethodInvoker)(() =>
                         {
                             pBar.Value = 0;
-                            pbTape.Image = Resources.cinta_vacía;
+                            lblName.Text = "";
                         }));
-                    });
-                }
+
+                        await Task.Delay(2000);
+                    }
+
+                    BeginInvoke((MethodInvoker)(() =>
+                    {
+                        pbTape.Image = Resources.cinta_vacía;
+
+                    }));
+
+                    transferring = false;
+                });
             }
         }
     }
