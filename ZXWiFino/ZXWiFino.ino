@@ -159,8 +159,6 @@ char PlayBytes[16];
 
 void setup()
 {
-
-
 	lcd.begin(16, 2);
 	lcd.display();
 	lcd.clear();
@@ -175,10 +173,6 @@ void setup()
 	digitalWrite(btnUp, HIGH);
 	pinMode(btnDown, INPUT_PULLUP);
 	digitalWrite(btnDown, HIGH);
-	pinMode(btnMenu, INPUT_PULLUP);
-	digitalWrite(btnMenu, HIGH);
-	pinMode(btnRewind, INPUT_PULLUP);
-	digitalWrite(btnRewind, HIGH);
 	pinMode(btnWiFi, INPUT_PULLUP);
 	digitalWrite(btnWiFi, HIGH);
 
@@ -194,7 +188,10 @@ void setup()
 	}
 
 	sd.chdir();                       //set SD to root directory
-	TZXSetup();                       //Setup TZX specific options
+	pinMode(outputPin, OUTPUT);               //Set output pin
+	digitalWrite(outputPin, LOW);             //Start output LOW
+	isStopped = true;
+	pinState = LOW;
 
 	lcd.clear();
 
@@ -207,7 +204,12 @@ void loop(void)
 {
 
 	if (start == 1)
-		TZXLoop();
+	{
+		if (casduino)
+			casduinoLoop();
+		else
+			TZXLoop();
+	}
 	else
 		digitalWrite(outputPin, LOW);    //Keep output LOW while no file is playing.
 
@@ -295,26 +297,6 @@ void loop(void)
 			}
 
 			while (digitalRead(btnPlay) == LOW)
-				delay(50);
-		}
-
-		//If playing, rewind the tape
-		if (digitalRead(btnRewind) == LOW && start == 1)
-		{
-			printtextF(PSTR("REWind ALL..    "), 0);
-			delay(500);
-			printtextF(PSTR("Playing         "), 0);
-
-			currpct = 100;
-			lcdsegs = 0;
-			currentBit = 0;
-			pass = 0;
-			bytesRead = 0;                                //start of file
-			currentBlockTask = READPARAM;               //First block task is to read in parameters
-			currentTask = GETFILEHEADER;                  //First task: search for header
-			checkForEXT(sfileName);
-
-			while (digitalRead(btnRewind) == LOW)
 				delay(50);
 		}
 
@@ -485,6 +467,9 @@ void loop(void)
 	}
 }
 
+#pragma region Navigation functions
+
+//Up one file entry
 void upFile()
 {
 	//move up a file in the directory
@@ -499,6 +484,7 @@ void upFile()
 	seekFile(currentFile);
 }
 
+//Up ten file entries
 void upTenFile()
 {
 	//move up a record in the directory
@@ -513,6 +499,7 @@ void upTenFile()
 	seekFile(currentFile);
 }
 
+//Down one file entry
 void downFile()
 {
 	//move down a record in the directory
@@ -522,6 +509,7 @@ void downFile()
 	seekFile(currentFile);
 }
 
+//Down ten file entries
 void downTenFile()
 {
 	//move down ten records in the directory
@@ -531,6 +519,7 @@ void downTenFile()
 	seekFile(currentFile);
 }
 
+//Seek to file entry
 void seekFile(int pos)
 {
 	//move to a set position in the directory, store the filename, and display the name on screen.
@@ -563,7 +552,7 @@ void seekFile(int pos)
 			prevFile++;
 		}
 	}
-	
+
 	entry.getName(dataBuffer, bufferLength);
 	entry.getSFN(sfileName);
 	filesize = entry.fileSize();
@@ -583,42 +572,6 @@ void seekFile(int pos)
 
 	scrollPos = 0;
 	scrollText(dataBuffer);
-}
-
-//Stop playback
-void stopFile()
-{
-	TZXStop();
-	if (start == 1)
-	{
-		printtextF(PSTR("Stopped"), 0);
-		start = 0;
-	}
-}
-
-//Start playback
-void playFile()
-{
-	if (isDir == 1)
-		changeDir();
-	else
-	{
-		if (entry.cwd()->exists(sfileName))
-		{
-			printtextF(PSTR("Playing         "), 0);
-
-			scrollPos = 0;
-			pauseOn = 0;
-			scrollText(dataBuffer);
-			currpct = 100;
-			lcdsegs = 0;
-			TZXPlay(sfileName);           //Load using the short filename
-			start = 1;
-		}
-		else
-			printtextF(PSTR("No File Selected"), 1);
-
-	}
 }
 
 //Get max files in folder
@@ -656,6 +609,193 @@ void changeDir()
 	currentFile = 1;
 	seekFile(currentFile);
 }
+
+#pragma endregion
+
+#pragma region Play control
+
+//Stop playback
+void stopFile()
+{
+	if (casduino)
+		CASStop();
+	else
+		TZXStop();
+
+	if (start == 1)
+	{
+		printtextF(PSTR("Stopped"), 0);
+		start = 0;
+	}
+}
+
+//Start playback
+void playFile()
+{
+	if (isDir == 1)
+		changeDir();
+	else
+	{
+		if (entry.cwd()->exists(sfileName))
+		{
+			printtextF(PSTR("Playing         "), 0);
+			scrollPos = 0;
+			pauseOn = 0;
+			scrollText(dataBuffer);
+			currpct = 100;
+			lcdsegs = 0;
+
+			if (!CheckPlay(sfileName))
+				return;
+
+			start = 1;
+		}
+		else
+			printtextF(PSTR("No File Selected"), 1);
+
+	}
+}
+
+#pragma endregion
+
+#pragma region File type checks
+
+bool CheckPlay(char* filename)
+{
+	if (!entry.open(filename, O_READ))
+	{
+		printtextF(PSTR("Error Opening File"), 0);
+		return false;
+	}
+
+	checkForEXT(filename);
+
+	if (casduino != 0)
+	{
+		CASPlay();
+		return true;
+	}
+	else if (tzxduino != 0)
+	{
+		TZXPlay();
+		return true;
+	}
+
+	printtextF(PSTR("Unknown file"), 1);
+	return false;
+}
+
+void checkForEXT(char *filename)
+{
+	casduino = 0;
+	tzxduino = 0;
+
+	if (checkForTzx(filename))
+	{                 //Check for Tap File.  As these have no header we can skip straight to playing data
+		currentTask = GETFILEHEADER;
+		currentID = TZX;
+		tzxduino = 1;
+	}
+	if (checkForTap(filename))
+	{                 //Check for Tap File.  As these have no header we can skip straight to playing data
+		currentTask = PROCESSID;
+		currentID = TAP;
+		tzxduino = 1;
+	}
+	else if (checkForP(filename))
+	{                 //Check for P File.  As these have no header we can skip straight to playing data
+		currentTask = PROCESSID;
+		currentID = ZXP;
+		tzxduino = 1;
+	}
+	else if (checkForO(filename))
+	{                 //Check for O File.  As these have no header we can skip straight to playing data
+		currentTask = PROCESSID;
+		currentID = ZXO;
+		tzxduino = 1;
+	}
+	else if (checkForAY(filename))
+	{                 //Check for AY File.  As these have no TAP header we must create it and send AY DATA Block after
+		currentTask = GETAYHEADER;
+		currentID = AYO;
+		AYPASS = 0;                             // Reset AY PASS flags
+		hdrptr = HDRSTART;                      // Start reading from position 1 -> 0x13 [0x00]
+		tzxduino = 1;
+	}
+	else if (checkForCAS(filename))
+	{
+		casduino = 1;
+	}
+}
+
+bool checkForTzx(char *filename)
+{
+	//Check for TAP file extensions as these have no header
+	byte len = strlen(filename);
+	if (strstr_P(strlwr(filename + (len - 4)), PSTR(".tzx")))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool checkForTap(char *filename)
+{
+	//Check for TAP file extensions as these have no header
+	byte len = strlen(filename);
+	if (strstr_P(strlwr(filename + (len - 4)), PSTR(".tap")))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool checkForP(char *filename)
+{
+	//Check for TAP file extensions as these have no header
+	byte len = strlen(filename);
+	if (strstr_P(strlwr(filename + (len - 2)), PSTR(".p")))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool checkForO(char *filename)
+{
+	//Check for TAP file extensions as these have no header
+	byte len = strlen(filename);
+	if (strstr_P(strlwr(filename + (len - 2)), PSTR(".o")))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool checkForAY(char *filename)
+{
+	//Check for AY file extensions as these have no header
+	byte len = strlen(filename);
+	if (strstr_P(strlwr(filename + (len - 3)), PSTR(".ay")))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool checkForCAS(char *filename)
+{
+	byte len = strlen(filename);
+	if (strstr_P(strlwr(filename + (len - 4)), PSTR(".cas")))
+	{
+		return true;
+	}
+	return false;
+}
+
+#pragma endregion
+
+#pragma region Display functions
 
 //Marquee text
 void scrollText(char* text)
@@ -717,3 +857,5 @@ void printtext(char* text, int l)
 	lcd.setCursor(0, l);
 	lcd.print(text);
 }
+
+#pragma endregion

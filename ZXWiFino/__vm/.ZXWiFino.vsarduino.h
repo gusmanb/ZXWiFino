@@ -77,6 +77,7 @@ typedef void *__builtin_va_list;
 #define pgm_read_ptr(address_short)   short()
 
 #include "ZXWiFino.ino"
+#include "CASProcessing.ino"
 #include "Menu.ino"
 #include "Spinner.ino"
 #include "TZXProcessing.ino"

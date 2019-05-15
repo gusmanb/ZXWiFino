@@ -13,45 +13,10 @@ word TickToUs(word ticks)
 	return (word)((((float)ticks) / 3.5) + 0.5);
 }
 
-
-void checkForEXT(char *filename)
+void TZXPlay()
 {
-	if (checkForTap(filename))
-	{                 //Check for Tap File.  As these have no header we can skip straight to playing data
-		currentTask = PROCESSID;
-		currentID = TAP;
-	}
-	if (checkForP(filename))
-	{                 //Check for P File.  As these have no header we can skip straight to playing data
-		currentTask = PROCESSID;
-		currentID = ZXP;
-	}
-	if (checkForO(filename))
-	{                 //Check for O File.  As these have no header we can skip straight to playing data
-		currentTask = PROCESSID;
-		currentID = ZXO;
-	}
-	if (checkForAY(filename))
-	{                 //Check for AY File.  As these have no TAP header we must create it and send AY DATA Block after
-		currentTask = GETAYHEADER;
-		currentID = AYO;
-		AYPASS = 0;                             // Reset AY PASS flags
-		hdrptr = HDRSTART;                      // Start reading from position 1 -> 0x13 [0x00]
-	}
-}
-
-void TZXPlay(char *filename)
-{
-	Timer1.stop();                              //Stop timer interrupt
-
-	if (!entry.open(filename, O_READ))
-	{          //open file and check for errors
-		printtextF(PSTR("Error Opening File"), 0);
-	}
-
 	bytesRead = 0;                                //start of file
-	currentTask = GETFILEHEADER;                  //First task: search for header
-	checkForEXT(filename);
+	Timer1.stop();                              //Stop timer interrupt
 	currentBlockTask = READPARAM;               //First block task is to read in parameters
 	clearBuffer();
 	isStopped = false;
@@ -59,51 +24,8 @@ void TZXPlay(char *filename)
 	count = 255;                                //End of file buffer flush
 	EndOfFile = false;
 	digitalWrite(outputPin, pinState);
-	Timer1.setPeriod(1000);                     //set 1ms wait at start of a file.
-}
-
-bool checkForTap(char *filename)
-{
-	//Check for TAP file extensions as these have no header
-	byte len = strlen(filename);
-	if (strstr_P(strlwr(filename + (len - 4)), PSTR(".tap")))
-	{
-		return true;
-	}
-	return false;
-}
-
-bool checkForP(char *filename)
-{
-	//Check for TAP file extensions as these have no header
-	byte len = strlen(filename);
-	if (strstr_P(strlwr(filename + (len - 2)), PSTR(".p")))
-	{
-		return true;
-	}
-	return false;
-}
-
-bool checkForO(char *filename)
-{
-	//Check for TAP file extensions as these have no header
-	byte len = strlen(filename);
-	if (strstr_P(strlwr(filename + (len - 2)), PSTR(".o")))
-	{
-		return true;
-	}
-	return false;
-}
-
-bool checkForAY(char *filename)
-{
-	//Check for AY file extensions as these have no header
-	byte len = strlen(filename);
-	if (strstr_P(strlwr(filename + (len - 3)), PSTR(".ay")))
-	{
-		return true;
-	}
-	return false;
+	Timer1.initialize(1000);                //100ms pause prevents anything bad happening before we're ready
+	Timer1.attachInterrupt(wave);
 }
 
 void TZXStop()
@@ -116,12 +38,6 @@ void TZXStop()
 	blkchksum = 0;                              // reset block chksum byte for AY loading routine
 	AYPASS = 0;                                 // reset AY flag
 }
-
-void TZXPause()
-{
-	isStopped = pauseOn;
-}
-
 
 void TZXLoop()
 {
@@ -150,38 +66,10 @@ void TZXLoop()
 	else
 	{
 
-		if ((pauseOn == 0) && (currpct < 100)) lcdTime();
-		newpct = (100 * bytesRead) / filesize;
-		if (currpct == 100)
-		{
-			currpct = 0;
-
-			lcd.setCursor(8, 0);
-			lcd.print(newpct);
-			lcd.print("%");
-
-		}
-		if ((newpct > currpct) && (newpct % 1 == 0))
-		{
-
-			lcd.setCursor(8, 0);
-			lcd.print(newpct);
-			lcd.print("%");
-
-			currpct = newpct;
-		}
+		if ((pauseOn == 0) && (currpct < 100)) 
+			lcdTime();
+		lcdPercent();
 	}
-}
-
-void TZXSetup()
-{
-	pinMode(outputPin, OUTPUT);               //Set output pin
-	digitalWrite(outputPin, LOW);             //Start output LOW
-	isStopped = true;
-	pinState = LOW;
-	Timer1.initialize(100000);                //100ms pause prevents anything bad happening before we're ready
-	Timer1.attachInterrupt(wave);
-	Timer1.stop();                            //Stop the timer until we're ready
 }
 
 void TZXProcess()

@@ -40,9 +40,9 @@ inline void StartWiFi()
 		return;
 	}
 
-	lcd.clear();
+	/*lcd.clear();
 	printtextF(PSTR("Registering..."), 0);
-
+*/
 	SendWiFiSettings();
 
 	if (!CheckOK())
@@ -52,9 +52,9 @@ inline void StartWiFi()
 		delay(5000);
 		return;
 	}
-
+/*
 	printtextF(PSTR("Starting server..."), 0);
-	
+	*/
 	SendCommand(PSTR("AT+CIPMUX=1")); //Allow multiple connections, forced by the server mode
 	delay(100);
 	ClearSerial();

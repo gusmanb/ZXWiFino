@@ -11,7 +11,7 @@ namespace ZXWiFinoClient
     public static class ZXWiFinoSender
     {
 
-        const int MaxPacketSize = 250 - 15;//Our buffer size less the IPD data
+        const int MaxPacketSize = 230 - 15;//Our buffer size less the IPD data
 
         public static event EventHandler<ProgressInfoEventArgs> ProgressChanged;
 

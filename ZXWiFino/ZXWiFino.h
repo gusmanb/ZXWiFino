@@ -19,7 +19,7 @@
 
 //If you have memory problems, reduce this buffer, also remember to reduce it on the client code.
 //The larger it is, the more efficient the data transfer will be
-#define bufferLength    250       //Data buffer length, used for file name and data transfer
+#define bufferLength    230       //Data buffer length, used for file name and data transfer
 
 #define scrollSpeed   200           //text scroll delay
 #define scrollWait    2000          //Delay before scrolling starts
@@ -38,11 +38,6 @@ PROGMEM const char indicators[] = { '|', '/', '-',0 };
 #define btnStop       3				//Stop Button
 #define btnWiFi       6				//WiFi button
 
-//WARNING, these pins (4 and 5) will be used by the I2C LCD
-//If you plan to use the I2C then choose other pins
-
-#define btnMenu       4				//Opens the MSX speedup menu
-#define btnRewind     5				//Rewinds the currently playing tape
 
 #ifdef LCD_16x16_4bits
 
@@ -115,6 +110,7 @@ PROGMEM const char TAPHdr[20] = { 0x0,0x0,0x3,'Z','X','A','Y','F','i','l','e',' 
 #define ZXO                 0xFC    //ZX80 O file
 #define ZXP                 0xFD    //ZX81 P File
 #define TAP                 0xFE    //Tap File Mode
+#define TZX                 0x00    //Tap File Mode
 #define EOF                 0xFF    //End of file
 
 
@@ -212,5 +208,51 @@ unsigned long timeDiff2 = 0;
 unsigned int lcdsegs = 0;
 int TSXspeedup = 1;
 int BAUDRATE = 1200;
+byte tzxduino = 0;
+
+#pragma endregion
+
+#pragma region CAS processing stuff
+
+#define WRITE_LOW digitalWrite(outputPin, LOW)
+#define WRITE_HIGH digitalWrite(outputPin, HIGH)
+
+#define SHORT_SILENCE       122
+#define LONG_SILENCE        SHORT_SILENCE*2
+
+#define SHORT_HEADER        800
+#define LONG_HEADER         800
+
+
+/* Header Definitions */
+PROGMEM const byte HEADER[8] = { 0x1F, 0xA6, 0xDE, 0xBA, 0xCC, 0x13, 0x7D, 0x74 };
+PROGMEM const byte ASCII[10] = { 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA, 0xEA };
+PROGMEM const byte BINF[10] = { 0xD0, 0xD0, 0xD0, 0xD0, 0xD0, 0xD0, 0xD0, 0xD0, 0xD0, 0xD0 };
+PROGMEM const byte BASIC[10] = { 0xD3, 0xD3, 0xD3, 0xD3, 0xD3, 0xD3, 0xD3, 0xD3, 0xD3, 0xD3 };
+
+#define lookHeader    0     //looking for header/data
+#define lookType      1     //looking for file type
+#define wHeader       2     //Write Header
+#define wSilence      3     //Write Silence
+#define wData         4     //Write Data
+#define wClose        5     //Write closing silence
+
+#define typeNothing   0
+#define typeAscii     1
+#define typeBinf      2
+#define typeBasic     3
+#define typeUnknown   4
+#define typeEOF 5
+#define period 208
+#define scale 4
+
+byte casduino = 0;
+volatile byte working = 0;
+byte out = LOW;
+byte bits[11];
+byte currentType = typeNothing;
+byte fileStage = 0;
+byte lastByte;
+
 
 #pragma endregion

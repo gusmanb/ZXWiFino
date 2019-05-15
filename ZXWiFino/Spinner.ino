@@ -32,6 +32,7 @@ void lcdTime()
 			{
 				itoa(lcdsegs % 100, PlayBytes, 10);
 				lcd.setCursor(14, 0);
+
 				lcd.print(PlayBytes);
 			}
 			else
@@ -53,5 +54,28 @@ void lcdTime()
 
 		lcdsegs++;
 
+	}
+}
+
+void lcdPercent()
+{
+	newpct = (100 * bytesRead) / filesize;
+	if (currpct == 100)
+	{
+		currpct = 0;
+
+		lcd.setCursor(8, 0);
+		lcd.print(newpct);
+		lcd.print("%");
+
+	}
+	if ((newpct > currpct) && (newpct % 1 == 0))
+	{
+
+		lcd.setCursor(8, 0);
+		lcd.print(newpct);
+		lcd.print("%");
+
+		currpct = newpct;
 	}
 }
