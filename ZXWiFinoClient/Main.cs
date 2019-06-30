@@ -15,7 +15,7 @@ namespace ZXWiFinoClient
 {
     public partial class Main : Form
     {
-        string[] allowedFormats = new string[] { ".tap", ".tzx", ".cas" };
+        string[] allowedFormats = new string[] { ".tap", ".tzx", ".cas", ".p", ".o" };
         bool transferring = false;
 
         public Main()
