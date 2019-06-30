@@ -37,6 +37,10 @@ Tested firmware:Ai-Thinker_ESP8266_AT_Firmware_DOUT_v1.5.4.1-a_20171130
 Found at http://acoptex.com/project/289/basics-project-021b-how-to-update-firmware-esp8266-esp-01-wi-fi-module-at-acoptexcom/
 Beware, it must be an ESP-01 module with a 8Mb flash
 
+## UPDATE 15/05/2019
+
+ - Added support for .CAS (MSX) files (need tweak, only 1200bps right now).
+
 ## UPDATE 25/04/2019
 
  - Added support for drag&drop multiple files at once
